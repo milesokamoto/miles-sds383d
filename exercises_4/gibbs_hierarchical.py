@@ -31,10 +31,10 @@ class HierarchicalModel:
 
         self.n_iter = n_iter
         self.burn_in = burn_in
-        self.omegas = np.array([0] * (self.n_iter))
-        self.lambdas = np.array([0] * (self.n_iter))
+        self.omegas = np.zeros(n_iter)
+        self.lambdas = np.zeros(n_iter)
         self.thetas = np.array([np.zeros_like(self.theta)] * (self.n_iter))
-        self.mus = np.array([np.zeros_like(self.mu)] * (self.n_iter))
+        self.mus = np.zeros(n_iter)
 
     def _get_n_i(self):
         return np.array(
@@ -59,24 +59,44 @@ class HierarchicalModel:
         return mu
 
     def _update_lambda(self):
+        # self.lam = gamma.rvs(
+        #     self.P / 2, 1 / (2 * self.omega) * np.sum((self.theta - self.mu) ** 2)
+        # )
         self.lam = gamma.rvs(
-            self.P / 2 - 1, 1 / (2 * self.omega) * np.sum((self.theta - self.mu) ** 2)
+            (self.P + 1) / 2,
+            1 / 2 * (self.omega * np.sum((self.theta - self.mu) ** 2) + 1),
         )
 
     def _update_omega(self):
+        # self.omega = gamma.rvs(
+        #     (self.N + self.P) / 2 + 1,
+        #     1
+        #     / 2
+        #     * np.sum(
+        #         (
+        #             [
+        #                 (self.y[j] - self.theta[self.cl[j] - 1]) ** 2
+        #                 for j in range(len(self.y))
+        #             ]
+        #         )
+        #     )
+        #     + np.sum(self.lam * (self.theta - self.mu) ** 2) * self.lam / self.omega,
+        # )
         self.omega = gamma.rvs(
-            (self.N + self.P) / 2 + 1,
+            (self.N + self.P) / 2,
             1
             / 2
-            * np.sum(
-                (
-                    [
-                        (self.y[j] - self.theta[self.cl[j] - 1]) ** 2
-                        for j in range(len(self.y))
-                    ]
+            * (
+                (self.omega * sum((self.theta - self.mu) ** 2) + 1)
+                + sum(
+                    np.array(
+                        [
+                            (self.theta[self.cl[i] - 1] - self.y[i]) ** 2
+                            for i in range(len(self.y))
+                        ]
+                    )
                 )
-            )
-            + np.sum(self.lam * (self.theta - self.mu) ** 2) * self.lam / self.omega,
+            ),
         )
 
     def _update_mu(self):
@@ -89,16 +109,23 @@ class HierarchicalModel:
                 for i in np.sort(np.unique(self.cl))
             ]
         )
-        print((self.n_i * self.lam * y_bar + self.lam * self.omega * self.mu))
+        # print(np.array([(i * self.lam) + self.lam * self.omega for i in self.n_i]))
+        # print(
+        #     (self.n_i * self.lam * y_bar + self.lam * self.omega * self.mu)
+        #     / (self.n_i * self.lam + self.lam * self.omega)
+        # )
 
-        self.theta = norm.rvs(
-            (self.n_i * self.lam * y_bar + self.lam * self.omega * self.mu)
-            / (self.n_i * self.lam + self.lam * self.omega),
-            (self.n_i * self.lam + self.lam * self.omega),
-        )
+        # self.theta = norm.rvs(
+        #     (self.n_i * self.lam * y_bar + self.lam * self.omega * self.mu)
+        #     / (self.n_i * self.lam + self.lam * self.omega),
+        #     (self.n_i * self.lam + self.lam * self.omega),
+        # )
+        mean = (y_bar * self.n_i / self.lam + self.mu) / (self.n_i / self.lam + 1)
+        var = 1 / (self.lam * self.omega) * 1 / (self.lam * self.n_i + 1)
+        norm.rvs(mean, var)
 
     def _store_iter(self, iter):
-        self.omegas[iter] = self.theta
+        self.omegas[iter] = self.omega
         self.lambdas[iter] = self.lam
         self.mus[iter] = self.mu
         self.thetas[iter] = self.theta
@@ -159,15 +186,9 @@ def main():
     hm = HierarchicalModel(y, cl)
     hm.fit()
 
-    # plt.plot(
-    #     np.array(data["City_Market_Rent"]),
-    #     y - htm.predict(),
-    #     "bo",
-    #     markersize=2,
-    #     alpha=0.1,
-    # )
-    # plt.savefig("res_vs_market_htm.png")
-
-    # plt.clf()
-    # plt.hist(np.array([np.mean(x) for x in htm.lambdas]), bins=20)
-    # plt.savefig("lambdas.png")
+    plt.clf()
+    plt.plot(np.sort(np.unique(hm.cl)), hm.thetas.mean(axis=0))
+    plt.title("theta_posterior_means")
+    plt.xlabel("school")
+    plt.ylabel("theta_est")
+    plt.savefig("posterior_thetas.png")
