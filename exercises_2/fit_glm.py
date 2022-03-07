@@ -134,10 +134,10 @@ if __name__ == "__main__":
     main()
 
 
-from sklearn.linear_model import LogisticRegression
+# from sklearn.linear_model import LogisticRegression
 
-clf = LogisticRegression(solver="newton-cg", C=1e6, fit_intercept=True).fit(
-    X, np.ravel(y)
-)
-np.set_printoptions(suppress=True)
-print(clf.coef_, clf.intercept_)
+# clf = LogisticRegression(solver="newton-cg", C=1e6, fit_intercept=True).fit(
+#     X, np.ravel(y)
+# )
+# np.set_printoptions(suppress=True)
+# print(clf.coef_, clf.intercept_)
