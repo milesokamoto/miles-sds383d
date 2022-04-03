@@ -34,7 +34,7 @@ z = [np.ones(len(x)) for x in y]
 
 # update_betas
 for group in range(n_groups):
-    B = np.lbinalg.inv(1/B_0*np.eye(n_betas) + X[group].T @ X[group])
+    B = np.linalg.inv(1/B_0*np.eye(n_betas) + X[group].T @ X[group])
     b = B @ (b_0 / B_0 + X[group].T @ z[group])
     betas[:, group] = multivariate_normal.rvs(mean=b, cov=B)
 
