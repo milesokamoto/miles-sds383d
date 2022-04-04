@@ -37,7 +37,7 @@ class ProbitRegression:
 
         self.traces = {'betas': np.zeros((self.n_iter, self.n_betas, self.n_groups)),
             'B_0': np.zeros(self.n_iter),
-            'b_0': np.zeros((self.n_iter, self.n_betas))}
+            'b_0': np.zeros((self.n_iter, self.n_betas, self.n_groups))}
 
     def get_X_sparse(self, X):
         return np.array([
@@ -70,7 +70,7 @@ class ProbitRegression:
 
     def update_traces(self, it):
         self.traces['betas'][it, :, :] = self.betas.reshape(self.n_betas, int(len(self.betas)/self.n_betas))
-        self.traces['b_0'][it, :] = self.b_0
+        self.traces['b_0'][it, :, :] = self.b_0.reshape(self.n_betas, int(len(self.betas)/self.n_betas))
         self.traces['B_0'][it] = self.B_0
 
     def fit(self):
