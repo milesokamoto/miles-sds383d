@@ -48,8 +48,8 @@ class ProbitRegression:
         ) for row in range(len(X))])
 
     def update_betas(self):
-        B = np.linalg.inv(1/self.b_0*np.eye(self.n_betas*self.n_groups) + self.X_sparse.T @ self.X_sparse)
-        b = B @ (self.b_0 / self.b_0 + self.X_sparse.T @ self.z)
+        B = np.linalg.inv(1/self.B_0*np.eye(self.n_betas*self.n_groups) + self.X_sparse.T @ self.X_sparse)
+        b = B @ (self.b_0 / self.B_0 + self.X_sparse.T @ self.z)
         self.betas = multivariate_normal.rvs(b, B)
 
     # update B_0
@@ -60,8 +60,8 @@ class ProbitRegression:
 
     # update b_0
     def update_b_0(self):
-        cov = self.b_0 / self.n_groups * np.eye(self.n_betas*self.n_groups)
-        mean = cov / self.b_0 @ self.betas
+        cov = self.B_0 / self.n_groups * np.eye(self.n_betas*self.n_groups)
+        mean = cov / self.B_0 @ self.betas
         self.b_0 = multivariate_normal.rvs(mean, cov)
 
     # update z
@@ -81,3 +81,20 @@ class ProbitRegression:
             self.update_z()
             if it >= self.burn:
                 self.update_traces(it-self.burn)
+
+
+def main():
+    """main method"""
+    data = pd.read_csv("experimental/mokamoto/polls.csv")
+    data_cleaned = data[data["bush"].notna()].sort_values("state")
+    data_cleaned["edu_code"] = [ENCODE_EDU[x] for x in data_cleaned["edu"]]
+    data_cleaned["age_code"] = [ENCODE_AGE[x] for x in data_cleaned["age"]]
+    data_cols = ["female", "black", "weight", "edu_code", "age_code"]
+    groups = data_cleaned[["state"]]
+    X = data_cleaned[data_cols].to_numpy()
+    y = data_cleaned[["bush"]].to_numpy()
+    pr = ProbitRegression(X, y, groups)
+    pr.fit()
+
+if __name__ == "__main__":
+    main()
