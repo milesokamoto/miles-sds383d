@@ -56,13 +56,13 @@ class ProbitRegression:
     def update_B_0(self):
         alpha = (self.n_groups + 1) / 2
         beta = 0.5 * (((self.betas - self.b_0) ** 2).sum() + 1)
-        self.b_0 = 1 / gamma.rvs(a=alpha, scale=1 / beta)
+        self.B_0 = 1 / gamma.rvs(a=alpha, scale=1 / beta)
 
     # update b_0
     def update_b_0(self):
         cov = self.b_0 / self.n_groups * np.eye(self.n_betas*self.n_groups)
         mean = cov / self.b_0 @ self.betas
-        self.b_0 = multivariate_normal.rvs(mean=mean, cov=cov)
+        self.b_0 = multivariate_normal.rvs(mean, cov)
 
     # update z
     def update_z(self):
