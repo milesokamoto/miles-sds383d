@@ -36,8 +36,8 @@ class ProbitRegression:
         self.z = np.ones(len(y)).T
 
         self.traces = {'betas': np.zeros((self.n_iter, self.n_betas, self.n_groups)),
-            'tau_squared': np.zeros(self.n_iter),
-            'm': np.zeros((self.n_iter, self.n_betas))}
+            'B_0': np.zeros(self.n_iter),
+            'b_0': np.zeros((self.n_iter, self.n_betas))}
 
     def get_X_sparse(self, X):
         return np.array([
@@ -69,7 +69,7 @@ class ProbitRegression:
         self.z = truncnorm.rvs([-np.inf if x == 0 else 0 for x in self.y], [0 if x == 0 else np.inf for x in self.y], loc=0, scale=1)
 
     def update_traces(self, it):
-        self.traces['betas'][it, :, :] = self.betas.reshape(self.n_betas, len(self.y))
+        self.traces['betas'][it, :, :] = self.betas.reshape(self.n_betas, int(len(self.betas)/self.n_betas))
         self.traces['b_0'][it, :] = self.b_0
         self.traces['B_0'][it] = self.B_0
 
@@ -81,20 +81,3 @@ class ProbitRegression:
             self.update_z()
             if it >= self.burn:
                 self.update_traces(it-self.burn)
-
-
-def main():
-    """main method"""
-    data = pd.read_csv("experimental/mokamoto/polls.csv")
-    data_cleaned = data[data["bush"].notna()].sort_values("state")
-    data_cleaned["edu_code"] = [ENCODE_EDU[x] for x in data_cleaned["edu"]]
-    data_cleaned["age_code"] = [ENCODE_AGE[x] for x in data_cleaned["age"]]
-    data_cols = ["female", "black", "weight", "edu_code", "age_code"]
-    groups = data_cleaned[["state"]]
-    X = data_cleaned[data_cols].to_numpy()
-    y = data_cleaned[["bush"]].to_numpy()
-    pr = ProbitRegression(X, y, groups)
-    pr.fit()
-
-if __name__ == "__main__":
-    main()
