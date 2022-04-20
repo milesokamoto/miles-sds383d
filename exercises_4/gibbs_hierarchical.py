@@ -12,9 +12,9 @@ class HierarchicalModel:
         y: np.array,
         cl: np.array,  # class
         theta=None,
-        mu=None,
-        omega=1.0,
-        lam=1.0,
+        mu=None,  # grand mean
+        omega=1.0,  # precision of data
+        lam=1.0,  # precision signal:noise
         n_iter: int = 1000,
         burn_in: int = 500,
     ):
@@ -41,15 +41,18 @@ class HierarchicalModel:
             [len(self.cl[self.cl == i]) for i in np.sort(np.unique(self.cl))]
         )
 
+    def _group_means(self):
+        return np.array(
+            [
+                np.mean(self.y[np.where(self.cl == i)])
+                for i in np.sort(np.unique(self.cl))
+            ]
+        )
+
     def _init_theta(self, theta):
         """initialize theta with given value or class averages if None"""
         if theta is None:
-            return np.array(
-                [
-                    np.mean(self.y[np.where(self.cl == i)])
-                    for i in np.sort(np.unique(self.cl))
-                ]
-            )
+            return self._group_means()
         return theta
 
     def _init_mu(self, mu):
@@ -58,48 +61,26 @@ class HierarchicalModel:
             return np.mean(self.theta)
         return mu
 
-    def _update_lambda(self):
-        # self.lam = gamma.rvs(
-        #     self.P / 2, 1 / (2 * self.omega) * np.sum((self.theta - self.mu) ** 2)
-        # )
+    def _update_lam(self):
         self.lam = gamma.rvs(
             (self.P + 1) / 2,
-            1 / 2 * (self.omega * np.sum((self.theta - self.mu) ** 2) + 1),
+            1 / 2 * (self.lam * np.sum((self.theta - self.mu) ** 2) + 1),
         )
 
     def _update_omega(self):
-        # self.omega = gamma.rvs(
-        #     (self.N + self.P) / 2 + 1,
-        #     1
-        #     / 2
-        #     * np.sum(
-        #         (
-        #             [
-        #                 (self.y[j] - self.theta[self.cl[j] - 1]) ** 2
-        #                 for j in range(len(self.y))
-        #             ]
-        #         )
-        #     )
-        #     + np.sum(self.lam * (self.theta - self.mu) ** 2) * self.lam / self.omega,
-        # )
-        self.omega = gamma.rvs(
-            (self.N + self.P) / 2,
-            1
-            / 2
-            * (
-                (self.omega * sum((self.theta - self.mu) ** 2) + 1)
-                + sum(
-                    np.array(
-                        [
-                            (self.theta[self.cl[i] - 1] - self.y[i]) ** 2
-                            for i in range(len(self.y))
-                        ]
-                    )
-                )
-            ),
-        )
+        beta = np.sum(
+            np.sum(
+                [
+                    (self.y[j] - self.theta[self.cl[j] - 1]) ** 2
+                    for j in range(len(self.y))
+                ]
+            )
+        ) + self.lam * np.sum((self.theta - self.mu) ** 2)
+        self.omega = gamma.rvs((self.N + self.P) / 2, beta)
 
     def _update_mu(self):
+        print(np.mean(self.theta))
+        print(1 / (self.P * self.omega * self.lam))
         self.mu = norm.rvs(np.mean(self.theta), 1 / (self.P * self.omega * self.lam))
 
     def _update_theta(self):
@@ -120,8 +101,8 @@ class HierarchicalModel:
         #     / (self.n_i * self.lam + self.lam * self.omega),
         #     (self.n_i * self.lam + self.lam * self.omega),
         # )
-        mean = (y_bar * self.n_i / self.lam + self.mu) / (self.n_i / self.lam + 1)
-        var = 1 / (self.lam * self.omega) * 1 / (self.lam * self.n_i + 1)
+        mean = (y_bar * self.n_i + self.lam * self.mu) / (self.n_i / self.lam)
+        var = 1 / (self.omega * (self.n_i + self.lam))
         norm.rvs(mean, var)
 
     def _store_iter(self, iter):
@@ -136,9 +117,13 @@ class HierarchicalModel:
 
             # gibbs sampling
             self._update_mu()
+            print(f"mu: {self.mu}")
             self._update_omega()
-            self._update_lambda()
+            print(f"omega: {self.omega}")
+            self._update_lam()
+            print(f"lambda: {self.lam}")
             self._update_theta()
+            print(f"theta: {self.theta}")
 
             # store each step
             if iter >= self.burn_in:
@@ -183,12 +168,14 @@ def main():
 
     # Fit Model
 
-    hm = HierarchicalModel(y, cl)
+    hm = HierarchicalModel(y, cl, n_iter=0, burn_in=1)
     hm.fit()
 
     plt.clf()
-    plt.plot(np.sort(np.unique(hm.cl)), hm.thetas.mean(axis=0))
+    plt.plot(np.sort(np.unique(hm.cl)), hm.thetas.mean(axis=0), "bo")
     plt.title("theta_posterior_means")
     plt.xlabel("school")
     plt.ylabel("theta_est")
-    plt.savefig("posterior_thetas.png")
+    plt.savefig("posterior_thetas2.png")
+
+    kappas = hm.lam / (hm.n_i + hm.lam)
